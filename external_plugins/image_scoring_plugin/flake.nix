@@ -5,7 +5,7 @@
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11";
   inputs.poetry2nix = {
     url = "github:nix-community/poetry2nix";
-#    inputs.nixpkgs.follows = "nixpkgs";
+    #    inputs.nixpkgs.follows = "nixpkgs";
   };
   inputs.shell-utils.url = "github:waltermoreira/shell-utils";
 
@@ -74,19 +74,11 @@
           '';
         };
 
-        ctevents =
-          let mySrc = pkgs.fetchFromGitHub {
-            owner = "tapis-project";
-            repo = "camera-traps";
-            rev = "423ba3884d358b2716cd9a7da450d7a5df0f925a";
-            hash = "sha256-QaHQ2Bfuyz8+Qesp7bWZ1vEA7dIJUj60NqSub7QoKFo=";
-          };
-          in
-          poetry.mkPoetryApplication {
-            python = myPython;
-            projectDir = "${mySrc}/src/python";
-            preferWheels = true;
-          };
+        ctevents = poetry.mkPoetryApplication {
+          python = myPython;
+          projectDir = ./../../src/python;
+          preferWheels = true;
+        };
 
         # The score plugin also depends on a release of the Microsoft MegaDetector model.
         # Fetch the MegaDetector PyTorch model release (.pt) file
