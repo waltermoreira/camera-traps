@@ -117,6 +117,18 @@
               python = myPython;
               projectDir = ./.;
               preferWheels = true;
+              overrides = poetry.overrides.withDefaults (
+                final: prev: {
+                  torch = prev.torch.overridePythonAttrs (
+                    old: {
+                      preFixup = ''
+                        echo "out is $out"
+                        patchelf --set-rpath '$ORIGIN':'$ORIGIN'/lib $out/lib/python3.8/site-packages/torch/{_dl,_C}*.so
+                      '' + old.preFixup or "";
+                    }
+                  );
+                }
+              );
             };
           in
           # Bring everything together using a custom derivation. The approach is to wrap myApp
@@ -126,23 +138,26 @@
             #   2. sets the python path to include paths to the git repos installed above
             # Note that 1) is needed because the score plugin code makes implicit assumption that
             # pt model file is in the current working directory. 
-          pkgs.stdenv.mkDerivation {
-            inherit name;
-            buildInputs = [ pkgs.makeWrapper ptModelDir poetryApp ];
-            src = ./.;
-            dontBuild = true;
-            installPhase = ''
-              makeWrapper ${poetryApp}/bin/${name} $out/bin/${name} \
-              --chdir ${ptModelDir} \
-              --set IMAGES_DIR_PATH ${exampleImages} \
-              --set OUTPUT_DIR_PATH /tmp \
-              --set PYTHONPATH \
-              "${cameraTrapsMD}/lib/python3.8/site-packages:\
-              ${cameraTrapsMD}/lib/python3.8/site-packages/camera_traps_MD:\
-              ${ai4eutils}/lib/python3.8/site-packages/ai4eutils:\
-              ${yolov5}/lib/python3.8/site-packages/yolov5:\
-              ${ctevents}/lib/python3.8/site-packages"
-            '';
+          {
+            app = poetryApp;
+            wrapped = pkgs.stdenv.mkDerivation {
+              inherit name;
+              buildInputs = [ pkgs.makeWrapper ptModelDir poetryApp ];
+              src = ./.;
+              dontBuild = true;
+              installPhase = ''
+                makeWrapper ${poetryApp}/bin/${name} $out/bin/${name} \
+                --chdir ${ptModelDir} \
+                --set IMAGES_DIR_PATH ${exampleImages} \
+                --set OUTPUT_DIR_PATH /tmp \
+                --set PYTHONPATH \
+                "${cameraTrapsMD}/lib/python3.8/site-packages:\
+                ${cameraTrapsMD}/lib/python3.8/site-packages/camera_traps_MD:\
+                ${ai4eutils}/lib/python3.8/site-packages/ai4eutils:\
+                ${yolov5}/lib/python3.8/site-packages/yolov5:\
+                ${ctevents}/lib/python3.8/site-packages"
+              '';
+            };
           };
 
         # Put together the environment and the executable
@@ -150,9 +165,9 @@
           name = "image_scoring_plugin";
           paths = [
             (app
-              { kind = poetry.mkPoetryEnv; name = "python"; })
+              { kind = poetry.mkPoetryEnv; name = "python"; }).wrapped
             (app
-              { kind = poetry.mkPoetryApplication; name = "image_scoring_plugin"; })
+              { kind = poetry.mkPoetryApplication; name = "image_scoring_plugin"; }).wrapped
           ];
         };
       in
@@ -160,7 +175,7 @@
         packages = {
           # set the wrapped app package to the default package
           default = fullApp;
-          env = app { kind = poetry.mkPoetryEnv; name = "python"; };
+          env = (app { kind = poetry.mkPoetryEnv; name = "python"; }).app.python.pkgs.torch;
         };
 
         devShells.default = shell {
