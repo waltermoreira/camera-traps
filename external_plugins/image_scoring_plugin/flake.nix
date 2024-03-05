@@ -2,23 +2,21 @@
   description = "Image Scoring plugin for Camera Traps packaged using poetry2nix";
 
   inputs.flake-utils.url = "github:numtide/flake-utils";
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11";
   inputs.poetry2nix = {
     url = "github:nix-community/poetry2nix";
-    inputs.nixpkgs.follows = "nixpkgs";
+#    inputs.nixpkgs.follows = "nixpkgs";
   };
   inputs.shell-utils.url = "github:waltermoreira/shell-utils";
 
   outputs = { self, nixpkgs, flake-utils, poetry2nix, shell-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        # see https://github.com/nix-community/poetry2nix/tree/master#api for more functions and examples.
-        inherit (poetry2nix.legacyPackages.${system}) mkPoetryApplication mkPoetryEnv;
-
         # Standard nix packages
         pkgs = nixpkgs.legacyPackages.${system};
         # Shell utilities used for creating the dev shell
         shell = shell-utils.myShell.${system};
+        poetry = poetry2nix.lib.mkPoetry2Nix { inherit pkgs; };
 
         # Initial Python 3.8 instance that will be used to create several Python packages.
         myPython = pkgs.python38;
@@ -84,7 +82,7 @@
             hash = "sha256-QaHQ2Bfuyz8+Qesp7bWZ1vEA7dIJUj60NqSub7QoKFo=";
           };
           in
-          mkPoetryApplication {
+          poetry.mkPoetryApplication {
             python = myPython;
             projectDir = "${mySrc}/src/python";
             preferWheels = true;
@@ -138,8 +136,8 @@
             # pt model file is in the current working directory. 
           pkgs.stdenv.mkDerivation {
             inherit name;
-            buildInputs = [ pkgs.makeWrapper ptModelDir ];
-            src = self;
+            buildInputs = [ pkgs.makeWrapper ptModelDir poetryApp ];
+            src = ./.;
             dontBuild = true;
             installPhase = ''
               makeWrapper ${poetryApp}/bin/${name} $out/bin/${name} \
@@ -160,20 +158,21 @@
           name = "image_scoring_plugin";
           paths = [
             (app
-              { kind = mkPoetryEnv; name = "python"; })
+              { kind = poetry.mkPoetryEnv; name = "python"; })
             (app
-              { kind = mkPoetryApplication; name = "image_scoring_plugin"; })
+              { kind = poetry.mkPoetryApplication; name = "image_scoring_plugin"; })
           ];
         };
       in
-      rec {
+      {
         packages = {
           # set the wrapped app package to the default package
           default = fullApp;
+          env = app { kind = poetry.mkPoetryEnv; name = "python"; };
         };
 
         devShells.default = shell {
-          packages = [ poetry2nix.packages.${system}.poetry fullApp ];
+          packages = [ poetry2nix.packages.${system}.default fullApp ];
         };
       });
 }
