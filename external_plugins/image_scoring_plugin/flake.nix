@@ -164,7 +164,7 @@
         };
 
         devShells.default = shell {
-          packages = [ poetry2nix.packages.${system}.default fullApp ];
+          packages = [ pkgs.poetry fullApp ];
         };
       });
 }
