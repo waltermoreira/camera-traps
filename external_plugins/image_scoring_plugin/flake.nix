@@ -117,18 +117,27 @@
               python = myPython;
               projectDir = ./.;
               preferWheels = true;
-              overrides = poetry.overrides.withDefaults (
-                final: prev: {
-                  torch = prev.torch.overridePythonAttrs (
-                    old: {
-                      preFixup = ''
-                        echo "out is $out"
-                        patchelf --set-rpath '$ORIGIN':'$ORIGIN'/lib $out/lib/python3.8/site-packages/torch/{_dl,_C}*.so
-                      '' + old.preFixup or "";
-                    }
-                  );
-                }
-              );
+              overrides = [
+                poetry.defaultPoetryOverrides
+                (
+                  final: prev: {
+                    torch = prev.torch.overridePythonAttrs (
+                      old: {
+                        preFixup = ''
+                          patchelf --set-rpath '$ORIGIN':'$ORIGIN'/lib $out/lib/python3.8/site-packages/torch/{_dl,_C}*.so
+                        '' + old.preFixup or "";
+                      }
+                    );
+                    torchvision = prev.torchvision.overrideAttrs (
+                      old: {
+                        preFixup = ''
+                          patchelf --set-rpath '$ORIGIN':'$ORIGIN'/lib $out/lib/python3.8/site-packages/torchvision/_C*.so
+                        '' + old.preFixup or "";
+                      }
+                    );
+                  }
+                )
+              ];
             };
           in
           # Bring everything together using a custom derivation. The approach is to wrap myApp
@@ -176,6 +185,8 @@
           # set the wrapped app package to the default package
           default = fullApp;
           env = (app { kind = poetry.mkPoetryEnv; name = "python"; }).app.python.pkgs.torch;
+          env2 = (app { kind = poetry.mkPoetryEnv; name = "python"; }).app.python.pkgs.torchvision;
+          poetry = poetry;
         };
 
         devShells.default = shell {
