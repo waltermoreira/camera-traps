@@ -122,17 +122,21 @@
                 (
                   final: prev: {
                     torch = prev.torch.overridePythonAttrs (
-                      old: {
-                        preFixup = ''
-                          patchelf --set-rpath '$ORIGIN':'$ORIGIN'/lib $out/lib/python3.8/site-packages/torch/{_dl,_C}*.so
-                        '' + old.preFixup or "";
-                      }
+                      old: with pkgs; lib.optionalAttrs (with pkgs.stdenv; isLinux && isAarch64)
+                        {
+                          src = fetchurl {
+                            url = "https://code.osu.edu/khuvis.1/camera-traps-wheels/-/raw/main/torch-1.10.0-cp38-cp38-linux_aarch64.whl";
+                            sha256 = "";
+                          };
+                        }
                     );
                     torchvision = prev.torchvision.overrideAttrs (
-                      old: {
-                        preFixup = ''
-                          patchelf --set-rpath '$ORIGIN':'$ORIGIN'/lib $out/lib/python3.8/site-packages/torchvision/_C*.so
-                        '' + old.preFixup or "";
+                      old: with pkgs; lib.optionalAttrs (with pkgs.stdenv; isLinux && isAarch64)
+                      {
+                          src = fetchurl {
+                            url = "https://code.osu.edu/khuvis.1/camera-traps-wheels/-/raw/main/torchvision-0.11.0-cp38-cp38-linux_aarch64.whl";
+                            sha256 = "";
+                          };
                       }
                     );
                   }
